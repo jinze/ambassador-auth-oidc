@@ -104,8 +104,7 @@ func init() {
 		Scheme:selfURL.Scheme,
 		Host:selfURL.Host,
 		Path: path.Join(selfURL.Path, "/login/oidc"),
-	}.String()
-	redirURL = getenvOrDefault("REDIRECT_URL", redirURL)
+	}
 
 	endpoint := provider.Endpoint()
 	endpoint.AuthURL = getenvOrDefault("OIDC_AUTH_URL", endpoint.AuthURL)
@@ -113,7 +112,7 @@ func init() {
 	oauth2Config = oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		RedirectURL:  redirURL,
+		RedirectURL:  getenvOrDefault("REDIRECT_URL", redirURL.String()),
 
 		// Discovery returns the OAuth2 endpoints.
 		Endpoint: endpoint,
