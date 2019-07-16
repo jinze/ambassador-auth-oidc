@@ -158,17 +158,14 @@ func AuthReqHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Got claims: %s", string(uifClaim))
-	claims := struct {
-		Email string `json:"email"`
-	}{}
-	log.Printf("Unmarshalled to: %+v", claims)
-	if err := json.Unmarshal(uifClaim, &claims); err != nil {
-		log.Println("Error unmarshaling claims: %v", err)
-		returnStatus(w, http.StatusInternalServerError, "error unmarshaling user claims")
-	}
 
 	log.Println(getUserIP(r), r.URL.String(), "Authorized & accepted.")
-	w.Header().Set(userIDHeader, fmt.Sprintf("%s%s", userIDPrefix, claims.Email))
+	userID, err := getUserIDFromClaims(uifClaim)
+	if err != nil {
+		returnStatus(w, http.StatusBadRequest, fmt.Sprintf("Error retrieving claim for userID: %+v", err))
+	}
+	log.Printf("UserID: %s", userID)
+	w.Header().Set(userIDHeader, fmt.Sprintf("%s%s", userIDPrefix, userID))
 	returnStatus(w, http.StatusOK, "OK")
 }
 
@@ -311,4 +308,18 @@ func checkBlacklist(jwtHash string) bool {
 	}
 
 	return false
+}
+
+func getUserIDFromClaims(claimsJSON []byte) (string, error) {
+	claims := map[string]interface{}{}
+	if err := json.Unmarshal(claimsJSON, &claims); err != nil {
+		return "", err
+	}
+
+	userID, ok := claims["name"]
+	if !ok {
+		return "", fmt.Errorf("claim not found.")
+	}
+
+	return userID.(string), nil
 }

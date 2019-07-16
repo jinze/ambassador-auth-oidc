@@ -229,6 +229,7 @@ func OIDCHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(getUserIP(r), "Login validated with ID token, redirecting with JWT cookie.") // TODO add user from userinfo
 	http.SetCookie(w, cookie)
+	destination = "/reception"
 	http.Redirect(w, r, destination, http.StatusFound)
 }
 
