@@ -100,7 +100,7 @@ func AuthReqHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(whitelist[0]) > 0 {
 		for _, v := range whitelist {
-			if strings.HasPrefix(r.URL.String(), string(v)) {
+			if strings.HasPrefix(r.URL.Path, string(v)) {
 				log.Println(getUserIP(r), r.URL.String(), "URI is whitelisted. Accepted without authorization.")
 				returnStatus(w, http.StatusOK, "OK")
 				return
@@ -119,7 +119,7 @@ func AuthReqHandler(w http.ResponseWriter, r *http.Request) {
 		userToken = cookie.Value
 	}
 
-	deletionCookie := createCookie("", time.Now().AddDate(0, 0, -2), hostname)
+	deletionCookie := createCookie("", time.Now().AddDate(0, 0, -2), "")
 
 	if len(userToken) == 0 { // Cookie or auth header empty
 		log.Println(getUserIP(r), r.URL.String(), "Empty authorization header.")
@@ -204,7 +204,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println(getUserIP(r), r.URL.String(), "Logged out, token added to blacklist.")
 
 	if logoutCookie { // Sends empty expired cookie to remove the logged out one.
-		newCookie := createCookie("", time.Now().AddDate(0, 0, -2), hostname)
+		newCookie := createCookie("", time.Now().AddDate(0, 0, -2), "")
 		http.SetCookie(w, newCookie)
 	}
 
@@ -316,9 +316,10 @@ func getUserIDFromClaims(claimsJSON []byte) (string, error) {
 		return "", err
 	}
 
-	userID, ok := claims["name"]
+	userIDClaim := getenvOrDefault("USERID_CLAIM", "email")
+	userID, ok := claims[userIDClaim]
 	if !ok {
-		return "", fmt.Errorf("claim not found.")
+		return "", fmt.Errorf("claim %s not found", userIDClaim)
 	}
 
 	return userID.(string), nil

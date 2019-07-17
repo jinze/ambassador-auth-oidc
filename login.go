@@ -11,12 +11,14 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
 
-	oidc "github.com/coreos/go-oidc"
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/coreos/go-oidc"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
@@ -25,6 +27,7 @@ var ctx context.Context
 var oauth2Config oauth2.Config
 var oidcProvider *oidc.Provider
 var oidcConfig *oidc.Config
+var selfURL *url.URL
 
 var hmacSecret []byte
 var nonceChars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -32,7 +35,8 @@ var nonceChars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012
 var loginSessions []*loginSession
 
 func init() {
-	hostname = strings.Split(parseEnvURL("SELF_URL").Host, ":")[0] // Because Host still has a port if it was in URL
+	selfURL = parseEnvURL("SELF_URL")
+	hostname = selfURL.Hostname() // Because Host still has a port if it was in URL
 
 	clientID := parseEnvVar("CLIENT_ID")
 	clientSecret := parseEnvVar("CLIENT_SECRET")
@@ -96,11 +100,15 @@ func init() {
 		oidcScopes = append(oidcScopes, elem)
 	}
 
-	var redirURL = parseEnvURL("SELF_URL").String()
-	if string(redirURL[len(redirURL)-1]) == "/" {
-		redirURL = string(redirURL[:len(redirURL)-1])
-	}
-	redirURL = redirURL + "/login/oidc"
+	redirURL := url.URL{
+		Scheme:selfURL.Scheme,
+		Host:selfURL.Host,
+		Path: path.Join(selfURL.Path, "/login/oidc"),
+	}.String()
+	redirURL = getenvOrDefault("REDIRECT_URL", redirURL)
+
+	endpoint := provider.Endpoint()
+	endpoint.AuthURL = getenvOrDefault("OIDC_AUTH_URL", endpoint.AuthURL)
 
 	oauth2Config = oauth2.Config{
 		ClientID:     clientID,
@@ -108,7 +116,7 @@ func init() {
 		RedirectURL:  redirURL,
 
 		// Discovery returns the OAuth2 endpoints.
-		Endpoint: provider.Endpoint(),
+		Endpoint: endpoint,
 
 		Scopes: oidcScopes,
 	}
